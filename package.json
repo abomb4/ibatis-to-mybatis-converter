@@ -1,0 +1,25 @@
+{
+  "name": "ibatis-to-mybatis-converter",
+  "version": "0.0.1",
+  "description": "Convert ibatis mapper to MyBatis mapper",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "npm run build && node dist/index.js",
+    "build": "tsc -p .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "ibatis-to-mybatis-converter": "./dist/ibatis-to-mybatis-converter.js"
+  },
+  "author": "yangrl<yangrlx@gmail.com>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^10.12.18",
+    "tslint": "^5.12.1",
+    "typescript": "^3.2.4"
+  }
+}

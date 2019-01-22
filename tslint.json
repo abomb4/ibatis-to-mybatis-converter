@@ -1,0 +1,39 @@
+{
+  "extends": ["tslint:recommended"],
+  "linterOptions": {
+    "exclude": [
+      "config/**/*.js",
+      "node_modules/**/*.ts",
+      "coverage/lcov-report/*.js"
+    ]
+  },
+  "rules": {
+    "linebreak-style": [ true, "LF" ],
+    "indent": [ true, "spaces", 2 ],
+    "no-trailing-whitespace": [ true ],
+    "unnecessary-bind": true,
+    "quotemark": [ true, "single", "jsx-double" ],
+    "no-empty-interface": [ false ],
+    "interface-name": false,
+    "semicolon": [ true, "always", "ignore-interfaces" ],
+    "eofline": true,
+    "arrow-return-shorthand": true,
+    "encoding": true,
+    "no-console":false,
+    "object-literal-sort-keys":false,
+    "max-classes-per-file": false,
+    "whitespace": [
+      true,
+      "check-branch",
+      "check-decl",
+      "check-operator",
+      "check-module",
+      "check-separator",
+      "check-rest-spread",
+      "check-type",
+      "check-typecast",
+      "check-type-operator",
+      "check-preblock"
+    ]
+  }
+}
