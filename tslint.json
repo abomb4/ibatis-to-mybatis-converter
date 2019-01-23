@@ -11,6 +11,7 @@
     "linebreak-style": [ true, "LF" ],
     "indent": [ true, "spaces", 2 ],
     "no-trailing-whitespace": [ true ],
+    "trailing-comma": false,
     "unnecessary-bind": true,
     "quotemark": [ true, "single", "jsx-double" ],
     "no-empty-interface": [ false ],
@@ -20,6 +21,7 @@
     "arrow-return-shorthand": true,
     "encoding": true,
     "no-console":false,
+    "no-empty": false,
     "object-literal-sort-keys":false,
     "max-classes-per-file": false,
     "whitespace": [

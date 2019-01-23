@@ -6,7 +6,8 @@
   "scripts": {
     "start": "npm run build && node dist/index.js",
     "build": "tsc -p .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "node --inspect --nolazy dist/index.js"
   },
   "files": [
     "dist"
@@ -16,7 +17,11 @@
   },
   "author": "yangrl<yangrlx@gmail.com>",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@types/xml2js": "^0.4.3",
+    "@types/xmlbuilder": "0.0.34",
+    "xml2js": "^0.4.19"
+  },
   "devDependencies": {
     "@types/node": "^10.12.18",
     "tslint": "^5.12.1",
