@@ -123,7 +123,7 @@ export class ItoMConverter {
   //   ]
   // }
 
-  public parse: (() => string) = () => {
+  public parse = (cb: (xml: builder.XMLElementOrXMLNode) => void) => {
     fs.readFile(this.filePath, {}, (err: NodeJS.ErrnoException, data: Buffer) => {
       if (err) {
         throw err;
@@ -175,12 +175,9 @@ export class ItoMConverter {
           }
         }
         this.buildXmlOnce(elements);
-        console.log(this.xml.toString({
-          pretty: true
-        }));
+        cb(this.xml);
       });
     });
-    return '';
   }
 
   private buildXmlOnce = (elements: XmlElement[]) => {
@@ -202,7 +199,11 @@ export class ItoMConverter {
           currentElement.att(i, element.attr[i]);
         }
         if (element.text) {
-          currentElement.text(element.text);
+          if (element.text.indexOf('<>') >= 0) {
+            currentElement.cdata(element.text);
+          } else {
+            currentElement.text(element.text);
+          }
         }
         element.children.forEach((child: XmlElement) => { recursive(currentElement, child); });
       }
@@ -331,9 +332,10 @@ export class ItoMConverter {
   private convertCommonSqlAndTags = (parent: XmlElement, element: any) => {
     const elementName = element['#name'].trim();
     if (elementName === TEXT_NODE_NAME) {
-      parent.children.push(
-        createXmlElement(TEXT_NODE_NAME, {}, [], this.filterElementText(element._))
-      );
+      const originText = element._;
+      if (originText && originText.trim() !== '') {
+        parent.children.push(createXmlElement(TEXT_NODE_NAME, {}, [], this.filterElementText(originText)));
+      }
     } else {
       const children = element.$$;
       const attr = element.$;
@@ -375,33 +377,53 @@ export class ItoMConverter {
           break;
         }
         case 'isNotEmpty': {
-
-          const resp: XmlElement = {
-            name: 'if',
-            attr: {},
-            children: []
-          };
-          const newAttr: any = mapObject(attr, (newObj, key, originValue) => {
-            if (originValue) {
-              const value = originValue.trim();
+          this.parseAsIfTag(parent, attr, children, (value) => `${value} != null and ${value} != ''`);
+          break;
+        }
+        case 'isNotNull': {
+          this.parseAsIfTag(parent, attr, children, (value) => `${value} != null`);
+          break;
+        }
+        case 'isEmpty': {
+          this.parseAsIfTag(parent, attr, children, (value) => `${value} == null or ${value} == ''`);
+          break;
+        }
+        case 'isNull': {
+          this.parseAsIfTag(parent, attr, children, (value) => `${value} == null`);
+          break;
+        }
+        case 'isEqual': {
+          const cValue = attr.compareValue;
+          if (cValue && (cValue === 'true' || cValue === 'false' || cValue.match(/^\d+$/))) {
+            this.parseAsIfTag(parent, attr, children, (value) => `${value} == ${cValue}`);
+          } else {
+            this.parseAsIfTag(parent, attr, children, (value) => `${value} == '${cValue}'`);
+          }
+          break;
+        }
+        case 'iterate': {
+          const newAttr: any = mapObject(attr, (newObj, key, value) => {
+            if (value) {
+              const trimValue = value.trim();
               switch (key) {
-                case 'prepend':
-                  resp.children.push({
-                    name: TEXT_NODE_NAME,
-                    attr: {},
-                    children: [],
-                    text: value
-                  });
-                  break;
                 case 'property':
-                  newObj.test = `${value} != null and ${value} != ''`;
+                  newObj.collection = trimValue;
+                  break;
+                case 'conjunction':
+                  newObj.separator = trimValue;
                   break;
                 default:
-                  newObj[key] = value;
+                  newObj[key] = trimValue;
               }
             }
           });
-          resp.attr = newAttr;
+          newAttr.item = 'listItem';
+
+          const resp: XmlElement = {
+            name: elementName,
+            attr: newAttr,
+            children: []
+          };
           parent.children.push(resp);
           for (const childKey in children) {
             if (!childKey) { continue; }
@@ -409,13 +431,17 @@ export class ItoMConverter {
             this.convertCommonSqlAndTags(resp, child);
           }
 
+          // Replace `theCollection[]` to `listItem`
+          const willReplaced = `${newAttr.collection}[]`;
+          for (const childKey in resp.children) {
+            if (!childKey) { continue; }
+            const child = resp.children[childKey];
+            if (child.text) {
+              child.text.replace(willReplaced, 'listItem');
+            }
+          }
           break;
         }
-        case 'isNotNull': { }
-        case 'isEmpty': { }
-        case 'isNull': { }
-        case 'isEqual': { }
-        case 'iterate': { }
         case 'dynamic': {
           const prepend = attr.prepend;
           let resp: XmlElement;
@@ -456,7 +482,20 @@ export class ItoMConverter {
           }
           break;
         }
-        case 'include': { }
+        case 'include': {
+          const resp: XmlElement = {
+            name: elementName,
+            attr,
+            children: []
+          };
+          parent.children.push(resp);
+          for (const childKey in children) {
+            if (!childKey) { continue; }
+            const child = children[childKey];
+            this.convertCommonSqlAndTags(resp, child);
+          }
+          break;
+        }
         default: {
           logger.error(`Unknown tag ${elementName} detected.`);
           const resp: XmlElement = createXmlElement(elementName, attr);
@@ -470,6 +509,50 @@ export class ItoMConverter {
         }
       }
 
+    }
+  }
+
+  /**
+   * Parse an ibatis tag to `<if />` tag, extract common code
+   *
+   * @param parent Parent of current tag
+   * @param attr Attributes parsed by `xml2js`
+   * @param children Children parsed by `xml2js` (`$` param), it's a list
+   * @param test How to generate `test` attr
+   */
+  private parseAsIfTag(parent: XmlElement, attr: any, children: any[], test: ((property: string) => string)) {
+
+    const resp: XmlElement = {
+      name: 'if',
+      attr: {},
+      children: []
+    };
+    const newAttr: any = mapObject(attr, (newObj, key, originValue) => {
+      if (originValue) {
+        const value = originValue.trim();
+        switch (key) {
+          case 'prepend':
+            resp.children.push({
+              name: TEXT_NODE_NAME,
+              attr: {},
+              children: [],
+              text: value
+            });
+            break;
+          case 'property':
+            newObj.test = test(value);
+            break;
+          default:
+            newObj[key] = value;
+        }
+      }
+    });
+    resp.attr = newAttr;
+    parent.children.push(resp);
+    for (const childKey in children) {
+      if (!childKey) { continue; }
+      const child = children[childKey];
+      this.convertCommonSqlAndTags(resp, child);
     }
   }
 
