@@ -16,10 +16,9 @@ const showUsage = () => console.log('Usage: U N K N O W N');
     console.log(index + ': ' + val);
   });
   new ItoMConverter('E:/x.xml').parse((xml: XMLElementOrXMLNode) => {
-    const result = xml.toString({
+    const result = xml.end({
       pretty: true,
     });
-    console.log(xml.document());
     fs.writeFile('E:/y.xml', result, {}, (err) => { if (err) { throw err; } });
   });
   showUsage();

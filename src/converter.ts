@@ -70,7 +70,7 @@ export class ItoMConverter {
     resultClass: 'resultType'
   };
 
-  private static REGEX_IBATIS_ELEMENT: RegExp = /([$#])([a-zA-Z_0-9]+)(?::([a-zA-Z_0-9]+))?\1/g;
+  private static REGEX_IBATIS_ELEMENT: RegExp = /([$#])([a-zA-Z_0-9\[\]]+)(?::([a-zA-Z_0-9]+))?\1/g;
 
   private xml: builder.XMLElementOrXMLNode;
   private parser: xml2js.Parser;
@@ -79,14 +79,15 @@ export class ItoMConverter {
   private typeAlias: { [key: string]: string } = {};
 
   constructor(filePath: string) {
-    this.xml = builder.create('mapper');
+    this.xml = builder.create('mapper', { encoding: 'UTF-8' });
     this.xml.dtd('-//mybatis.org//DTD Mapper 3.0//EN', 'http://mybatis.org/dtd/mybatis-3-mapper.dtd');
 
     const parser = new xml2js.Parser({
       explicitChildren: true,
       charsAsChildren: true,
       includeWhiteChars: true,
-      preserveChildrenOrder: true
+      preserveChildrenOrder: true,
+      cdata: true
     });
     this.parser = parser;
 
@@ -187,7 +188,11 @@ export class ItoMConverter {
       if (eName === TEXT_NODE_NAME) {
         // Text node is text only
         if (element.text) {
-          parent.raw(element.text);
+          if (element.text.match(/[<>]/)) {
+            parent.cdata(element.text);
+          } else {
+            parent.raw(element.text);
+          }
         } else {
           logger.warn('Empty text node detected, it\'s parent is:', JSON.stringify(parent.element));
         }
@@ -199,7 +204,7 @@ export class ItoMConverter {
           currentElement.att(i, element.attr[i]);
         }
         if (element.text) {
-          if (element.text.indexOf('<>') >= 0) {
+          if (element.text.match(/[<>]/)) {
             currentElement.cdata(element.text);
           } else {
             currentElement.text(element.text);
@@ -230,6 +235,7 @@ export class ItoMConverter {
     const key: string = element.$.alias;
     const value: string = element.$.type;
     this.typeAlias[key] = value;
+    console.log('this.typeAlias[key] = value;', `this.typeAlias[${key}] = ${value};`);
   }
 
   /**
@@ -432,12 +438,13 @@ export class ItoMConverter {
           }
 
           // Replace `theCollection[]` to `listItem`
-          const willReplaced = `${newAttr.collection}[]`;
+          const willReplaced = `${newAttr.collection}\[\]`;
+          logger.debug('willReplaced', willReplaced);
           for (const childKey in resp.children) {
             if (!childKey) { continue; }
             const child = resp.children[childKey];
             if (child.text) {
-              child.text.replace(willReplaced, 'listItem');
+              child.text = child.text.replace(willReplaced, 'listItem');
             }
           }
           break;
@@ -527,17 +534,13 @@ export class ItoMConverter {
       attr: {},
       children: []
     };
+    let prependText: string | undefined;
     const newAttr: any = mapObject(attr, (newObj, key, originValue) => {
       if (originValue) {
         const value = originValue.trim();
         switch (key) {
           case 'prepend':
-            resp.children.push({
-              name: TEXT_NODE_NAME,
-              attr: {},
-              children: [],
-              text: value
-            });
+            prependText = value;
             break;
           case 'property':
             newObj.test = test(value);
@@ -549,10 +552,16 @@ export class ItoMConverter {
     });
     resp.attr = newAttr;
     parent.children.push(resp);
-    for (const childKey in children) {
-      if (!childKey) { continue; }
-      const child = children[childKey];
-      this.convertCommonSqlAndTags(resp, child);
+    {
+      for (const childKey in children) {
+        if (!childKey) { continue; }
+        const child = children[childKey];
+        this.convertCommonSqlAndTags(resp, child);
+      }
+      const mayText = resp.children[0];
+      if (prependText && mayText && mayText.text) {
+        mayText.text = ` ${prependText} ${mayText.text} `;
+      }
     }
   }
 
@@ -595,8 +604,9 @@ export class ItoMConverter {
    * Try translate ALL aliased type to real class and convert attr name
    */
   private filterAttrsAndTranslate = (obj: any) => {
-    for (const key in ItoMConverter.MAY_ALIAS_ATTR) {
-      if (!key) { continue; }
+    for (const index in ItoMConverter.MAY_ALIAS_ATTR) {
+      if (!index) { continue; }
+      const key = ItoMConverter.MAY_ALIAS_ATTR[index];
       const value: string | undefined = obj[key];
       if (value) {
         // Trim it
