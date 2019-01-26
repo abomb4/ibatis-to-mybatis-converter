@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "npm run build && node dist/index.js",
-    "build": "tsc -p .",
+    "build": "webpack --config webpack.config.js",
+    "build-ts": "tsc -p .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "debug": "node --inspect --nolazy dist/index.js"
   },
@@ -24,7 +25,9 @@
   },
   "devDependencies": {
     "@types/node": "^10.12.18",
+    "ts-loader": "^5.3.3",
     "tslint": "^5.12.1",
-    "typescript": "^3.2.4"
+    "typescript": "^3.2.4",
+    "webpack": "^4.29.0"
   }
 }
