@@ -13,44 +13,28 @@ This program will convert any '*.xml' file in source dir and write to target dir
 Usage: ibatis-to-mybatis-converter [source dir] [target dir]
 `);
 
-/**
- * Generate file names
- */
-function* fileNameGenerator(items: string[], targetDir: string): Iterator<string> {
+class ArrayIterator<T> {
+  private array: T[];
+  private current: number;
+  private length: number;
 
-  for (const file of items) {
-    if (!file.match(/\.xml$/)) {
-      LOG.info(`file ${file} is not xml file, skip..`);
+  constructor(array: T[]) {
+    this.array = array;
+    this.current = 0;
+    this.length = array.length;
+  }
+
+  public next(value?: any): { done: boolean, value?: T } {
+    if (this.current >= this.length) {
+      return { done: true };
     } else {
-      LOG.info(`Try convert ${file}.`);
-      yield file;
+      const result = this.array[this.current];
+      this.current += 1;
+      return { done: false, value: result };
     }
   }
 }
 
-/**
- * Runner of fileNameGenerator
- *
- * @param targetDir Output dir
- * @param gen Filename generator
- */
-const runner = (targetDir: string, gen: Iterator<string>) => {
-  const gent = gen.next();
-  if (!gent.done) {
-    const path = gent.value;
-    parse(path, (xml: XMLElementOrXMLNode) => {
-      fs.writeFile(`${targetDir}/${path}`, xml.end({ pretty: true }), (errrr: NodeJS.ErrnoException) => {
-        if (errrr) {
-          LOG.error(`Failed to convert file ${path}`, errrr);
-        }
-        runner(targetDir, gen);
-      });
-    });
-  }
-};
-function x(sourceDir: string, targetDir: string) {
-
-}
 /**
  * Main !!!
  */
@@ -79,18 +63,44 @@ function x(sourceDir: string, targetDir: string) {
   });
   if (finish) {
 
-  // new ItoMConverter('E:/x.xml').parse((xml: XMLElementOrXMLNode) => {
-  //   const result = xml.end({
-  //     pretty: true,
-  //   });
-  //   fs.writeFile('E:/y.xml', result, {}, (err) => { if (err) { throw err; } });
+    // new ItoMConverter('E:/x.xml').parse((xml: XMLElementOrXMLNode) => {
+    //   const result = xml.end({
+    //     pretty: true,
+    //   });
+    //   fs.writeFile('E:/y.xml', result, {}, (err) => { if (err) { throw err; } });
     // });
     fs.readdir(args.sourceDir, (err: NodeJS.ErrnoException, items: string[]) => {
       if (err) {
         throw err;
       }
-      const fileNameGen = fileNameGenerator(items, args.targetDir);
-      runner(args.targetDir, fileNameGen);
+      const fileNameIterator = new ArrayIterator(items);
+      const runner = (gen: ArrayIterator<string>) => {
+        const next = gen.next();
+        if (!next.done) {
+          const fileName = next.value;
+          if (!fileName) {
+            throw new Error('panic');
+          }
+
+          if (!fileName.match(/\.xml$/)) {
+            LOG.info(`file ${fileName} is not xml file, skip..`);
+          } else {
+            LOG.info(`Try convert ${fileName}.`);
+            parse(`${args.sourceDir}/${fileName}`, (xml: XMLElementOrXMLNode) => {
+              fs.writeFile(
+                `${args.targetDir}/${fileName}`,
+                xml.end({ pretty: true }),
+                (errrr: NodeJS.ErrnoException) => {
+                  if (errrr) {
+                    LOG.error(`Failed to convert file ${fileName}`, errrr);
+                  }
+                  runner(gen);
+                });
+            });
+          }
+        }
+      };
+      runner(fileNameIterator);
     });
   } else {
     showUsage();
