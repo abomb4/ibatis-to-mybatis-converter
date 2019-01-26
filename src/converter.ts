@@ -619,14 +619,19 @@ export class ItoMConverter {
         const real: string | undefined = this.typeAlias[trimValue];
         if (real) {
           logger.debug(`translate alias key "${key}" from "${value}" to "${real}"`);
-          const mayNeedConvert = ItoMConverter.NEED_CONVERTER[key];
-          if (mayNeedConvert) {
-            delete obj[key];
-            obj[mayNeedConvert] = real;
-          } else {
-            obj[key] = real;
-          }
+          obj[key] = real;
         }
+      }
+    }
+
+    // modify attr name
+    for (const index in obj) {
+      if (!index) { continue; }
+      const mayNeedConvert = ItoMConverter.NEED_CONVERTER[index];
+      if (mayNeedConvert) {
+        const v = obj[index];
+        delete obj[index];
+        obj[mayNeedConvert] = v;
       }
     }
   }
