@@ -56,7 +56,7 @@ const mapObject = (obj: any, keyMapper: ((newObj: any, key: string, value: strin
  * const xmlStr = new ItoMConverter('/path/to/ibatis_mapper.xml').parse();
  * ```
  */
-export class ItoMConverter {
+class ItoMConverter {
 
   private static MAY_ALIAS_ATTR = [
     'class',
@@ -87,7 +87,8 @@ export class ItoMConverter {
       charsAsChildren: true,
       includeWhiteChars: true,
       preserveChildrenOrder: true,
-      cdata: true
+      cdata: true,
+      async: false
     });
     this.parser = parser;
 
@@ -635,4 +636,8 @@ export class ItoMConverter {
       }
     }
   }
+}
+
+export function parse(path: string, cb: ((xml: builder.XMLElementOrXMLNode) => void)) {
+  new ItoMConverter(path).parse(cb);
 }
