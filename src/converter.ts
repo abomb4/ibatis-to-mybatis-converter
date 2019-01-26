@@ -236,7 +236,6 @@ class ItoMConverter {
     const key: string = element.$.alias;
     const value: string = element.$.type;
     this.typeAlias[key] = value;
-    console.log('this.typeAlias[key] = value;', `this.typeAlias[${key}] = ${value};`);
   }
 
   /**

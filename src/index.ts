@@ -87,12 +87,13 @@ class ArrayIterator<T> {
           } else {
             LOG.info(`Try convert ${fileName}.`);
             parse(`${args.sourceDir}/${fileName}`, (xml: XMLElementOrXMLNode) => {
+              LOG.info(`Convert ${fileName} success.`);
               fs.writeFile(
                 `${args.targetDir}/${fileName}`,
                 xml.end({ pretty: true }),
                 (errrr: NodeJS.ErrnoException) => {
                   if (errrr) {
-                    LOG.error(`Failed to convert file ${fileName}`, errrr);
+                    LOG.error(`Failed to write file ${fileName}`, errrr);
                   }
                   runner(gen);
                 });

@@ -9,7 +9,7 @@ export class Logger {
 
   private name: string;
   private enables = {
-    debug: true,
+    debug: false,
     info: true,
     warn: true,
     error: true
