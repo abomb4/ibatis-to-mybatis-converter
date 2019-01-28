@@ -10,7 +10,6 @@ interface XmlElement {
   children: XmlElement[],
   text?: string
 }
-
 const createXmlElement = (name: string, attr?: { [key: string]: string }, children?: XmlElement[], text?: string) => {
 
   if (name === TEXT_NODE_NAME && !text) {
@@ -23,6 +22,39 @@ const createXmlElement = (name: string, attr?: { [key: string]: string }, childr
     text
   };
 };
+
+interface ParameterMapParameter {
+  property: string;
+  mode: string;
+  jdbcType: string;
+  javaType: string;
+}
+const createParameterMapParameter = (property: string, mode: string, jdbcType: string, javaType: string) => {
+
+  if (mode.toUpperCase() !== 'IN' && mode.toUpperCase() !== 'OUT') {
+    mode = 'IN';
+  }
+  return { property, mode, jdbcType, javaType };
+};
+
+/**
+ * `parameterMap` is properties defination in a procedure call.
+ *
+ * A parameterMap just like:
+ * ```
+ * <parameterMap id="theId" class="map" >
+ *   <parameter property="NAME" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String"/>
+ *   <parameter property="EMAIL" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String"/>
+ *   <parameter property="resultFlag" mode="OUT"  jdbcType="VARCHAR" javaType="java.lang.String"/>
+ *   <parameter property="resultMsg" mode="OUT" jdbcType="VARCHAR" javaType="java.lang.String"/>
+ * </parameterMap>
+ * ```
+ */
+interface ParameterMap {
+  id: string;
+  class: string;
+  parameters: ParameterMapParameter[];
+}
 
 const TEXT_NODE_NAME = '__text__';
 
@@ -79,6 +111,8 @@ class ItoMConverter {
   private filePath: string;
   // I will clear all typeAlias, here is alias map
   private typeAlias: { [key: string]: string } = {};
+  // Record parameter map, fill in <procedure />
+  private parameterMap: { [key: string]: ParameterMap } = {};
 
   constructor(filePath: string) {
     this.xml = builder.create('mapper', { encoding: 'UTF-8' });
@@ -160,6 +194,15 @@ class ItoMConverter {
                   case 'delete':
                     elements.push(this.parseNearlyRootElements(tag));
                     break;
+                  case 'parameterMap': {
+                    // Property info for procedure call
+                    this.parseParameterMap(tag);
+                    break;
+                  }
+                  case 'procedure': {
+                    elements.push(this.parseProcedure(tag));
+                    break;
+                  }
                   case TEXT_NODE_NAME:
                     // Ignore text node from root
                     break;
@@ -272,6 +315,101 @@ class ItoMConverter {
         );
       })
     );
+
+    return resp;
+  }
+
+  /**
+   * `parameterMap` is properties defination in a procedure call.
+   *
+   * A parameterMap just like:
+   * ```
+   * <parameterMap id="theId" class="map" >
+   *   <parameter property="NAME" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String"/>
+   *   <parameter property="EMAIL" mode="IN" jdbcType="VARCHAR" javaType="java.lang.String"/>
+   *   <parameter property="resultFlag" mode="OUT"  jdbcType="VARCHAR" javaType="java.lang.String"/>
+   *   <parameter property="resultMsg" mode="OUT" jdbcType="VARCHAR" javaType="java.lang.String"/>
+   * </parameterMap>
+   * ```
+   */
+  private parseParameterMap(element: any): void {
+    const children: any[] = element.$$;
+    const attr: any = element.$;
+
+    const resp: ParameterMap = {
+      class: attr.class,
+      id: attr.id,
+      parameters: []
+    };
+
+    if (resp.class === 'map') {
+      resp.class = 'java.util.Map';
+    }
+
+    for (const index in children) {
+      if (!index) { continue; }
+      const child = children[index];
+      if (child['#name'] !== 'parameter') {
+        continue;
+      }
+      const cAttr = child.$;
+      resp.parameters.push(createParameterMapParameter(cAttr.property, cAttr.mode, cAttr.jdbcType, cAttr.javaType));
+    }
+
+    this.parameterMap[resp.id] = resp;
+  }
+
+  /**
+   * Parse 'procedure` tag.
+   * Let's union it to `<select />` tag;
+   */
+  private parseProcedure = (element: any): XmlElement => {
+    const children = element.$$;
+    const attr = element.$;
+    this.filterAttrsAndTranslate(attr);
+    const newAttr: {[key: string]: string} = {};
+    let parameterMap: ParameterMap | undefined;
+    {
+      for (const key in attr) {
+        if (!key) { continue; }
+        const value = attr[key];
+        if (key === 'parameterMap') {
+          // Try translate
+          parameterMap = this.parameterMap[value];
+          if (!parameterMap) {
+            throw new Error(`Cannot found 'parameterMap' by key '${value}', please check your <procedure /> tag.`);
+          }
+          newAttr.parameterType = parameterMap.class;
+        } else {
+          newAttr[key] = value;
+        }
+      }
+    }
+    const resp: XmlElement = createXmlElement('select', newAttr);
+
+    // Procedure may have two form:
+    // 1. call some_procedure(?, ?, ?)
+    // 2. call some_procedure(#aaa#, #bbb#, #ccc#)
+    // Currently, only mode 1 is supported.
+    let procedureJoin: string = '';
+    for (const childIndex in children) {
+      if (!childIndex) { continue; }
+      procedureJoin = procedureJoin + children[childIndex]._;
+    }
+
+    if (procedureJoin.match(/\?/)) {
+      if (!parameterMap) {
+        throw new Error(`Found '?' in procedure but parameterMap '${attr.parameterMap}' not found.`);
+      }
+
+      logger.info('parameterMap', parameterMap);
+      for (const param of parameterMap.parameters) {
+        const prop = `${LINE_SEPARATOR}#{${param.property},mode=${param.mode},jdbcType=${param.jdbcType}}`;
+        procedureJoin = procedureJoin.replace(/\?/, prop);
+      }
+    }
+    resp.text = this.filterElementText(procedureJoin);
+    resp.text = LINE_SEPARATOR + resp.text + LINE_SEPARATOR;
 
     return resp;
   }
@@ -622,6 +760,7 @@ class ItoMConverter {
    * Try translate ALL aliased type to real class and convert attr name
    */
   private filterAttrsAndTranslate = (obj: any) => {
+    // Check alias
     for (const index in ItoMConverter.MAY_ALIAS_ATTR) {
       if (!index) { continue; }
       const key = ItoMConverter.MAY_ALIAS_ATTR[index];
