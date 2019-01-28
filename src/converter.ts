@@ -402,7 +402,6 @@ class ItoMConverter {
         throw new Error(`Found '?' in procedure but parameterMap '${attr.parameterMap}' not found.`);
       }
 
-      logger.info('parameterMap', parameterMap);
       for (const param of parameterMap.parameters) {
         const prop = `${LINE_SEPARATOR}#{${param.property},mode=${param.mode},jdbcType=${param.jdbcType}}`;
         procedureJoin = procedureJoin.replace(/\?/, prop);
