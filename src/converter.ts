@@ -202,6 +202,9 @@ class ItoMConverter {
         const currentElement: builder.XMLElementOrXMLNode = parent.ele(element.name);
         for (const i in element.attr) {
           if (!i) { continue; }
+          if (!element.attr[i]) {
+            logger.warn(`attr ${i} is empty`);
+          }
           currentElement.att(i, element.attr[i]);
         }
         if (element.text) {
@@ -450,12 +453,13 @@ class ItoMConverter {
           break;
         }
         case 'dynamic': {
-          const prepend = attr.prepend;
+          const prefixOrigin = attr.prepend;
           let resp: XmlElement;
-          if (!prepend) {
+          if (!prefixOrigin) {
             logger.warn(`No 'prepend' attr found in dynamic!`);
             resp = createXmlElement(elementName, attr);
           } else {
+            const prepend: string = prefixOrigin.trim();
             let newElementName: string;
             const newAttr: any = {};
             switch (prepend) {
