@@ -1,3 +1,4 @@
+const webpack = require('webpack');
 const path = require('path');
 
 module.exports = {
@@ -13,8 +14,14 @@ module.exports = {
   module: {
     rules: [{
       test: /\.ts$/,
-      use: 'ts-loader',
+      use: ['ts-loader'],
       exclude: /node_modules/
     }]
-  }
+  },
+  plugins: [
+    new webpack.BannerPlugin({
+      banner: "#!/usr/bin/env node",
+      raw: true
+    })
+  ]
 };
