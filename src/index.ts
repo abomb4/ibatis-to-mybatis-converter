@@ -106,6 +106,12 @@ class ArrayIterator<T> {
           }
         }
       };
+
+      // Try create target dir if not exists
+      if (!fs.existsSync(args.targetDir)) {
+        LOG.info(`Target dir '${args.targetDir}' is not exists, try create.`);
+        fs.mkdirSync(args.targetDir);
+      }
       runner(fileNameIterator);
     });
   } else {
