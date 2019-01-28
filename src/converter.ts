@@ -28,6 +28,8 @@ const TEXT_NODE_NAME = '__text__';
 
 const logger: Logger = new Logger('ItoMConverter');
 
+export const LINE_SEPARATOR = '\n';
+
 /**
  * Iterate every key of an object, returns a new object.
  *
@@ -202,10 +204,12 @@ class ItoMConverter {
         const currentElement: builder.XMLElementOrXMLNode = parent.ele(element.name);
         for (const i in element.attr) {
           if (!i) { continue; }
-          if (!element.attr[i]) {
-            logger.warn(`attr ${i} is empty`);
+          const attrValue = element.attr[i];
+          if (attrValue === undefined || attrValue === null) {
+            logger.warn(`attr ${i} is null`);
+            throw new Error(`attr ${i} is null`);
           }
-          currentElement.att(i, element.attr[i]);
+          currentElement.att(i, attrValue);
         }
         if (element.text) {
           if (element.text.match(/[<>]/)) {
@@ -471,10 +475,20 @@ class ItoMConverter {
                 break;
               default:
                 newElementName = 'trim';
-                newAttr.prefix = attr.prefix;
+                newAttr.prefix = prepend;
                 // Find first element's 'prepend' attr, set to prefixOverrides
                 if (children.length && children.length > 0) {
-                  of(children[0])
+                  of((() => {
+                    for (const index in children) {
+                      if (!index) { continue; }
+                      const child = children[index];
+                      // Ignore empty text node
+                      if (child['#name'] === TEXT_NODE_NAME && (!child._ || child._.trim() === '')) {
+                        continue;
+                      }
+                      return child;
+                    }
+                  })())
                     .map((e: any) => e.$)
                     .map((atr: any) => atr.prepend)
                     .ifPresent((p: string) => {
@@ -577,7 +591,7 @@ class ItoMConverter {
    */
   private filterElementText(text: string): string {
     const regex = ItoMConverter.REGEX_IBATIS_ELEMENT;
-    const trimedText = text.trim();
+    const trimedText = text.trim().replace(/\r\n/g, LINE_SEPARATOR);
     const matches = trimedText.match(regex);
     if (matches) {
       let newText: string = trimedText;

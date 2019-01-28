@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import { XMLElementOrXMLNode } from 'xmlbuilder';
-import { parse } from './converter';
+import { LINE_SEPARATOR, parse } from './converter';
 import { Logger } from './logger';
 
 const LOG = new Logger('index.ts');
@@ -91,7 +91,11 @@ class ArrayIterator<T> {
               LOG.info(`Convert ${fileName} success.`);
               fs.writeFile(
                 `${args.targetDir}/${fileName}`,
-                xml.end({ pretty: true }),
+                xml.end({
+                  pretty: true,
+                  spacebeforeslash: ' ',
+                  newline: LINE_SEPARATOR
+                }),
                 (errrr: NodeJS.ErrnoException) => {
                   if (errrr) {
                     LOG.error(`Failed to write file ${fileName}`, errrr);
