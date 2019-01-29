@@ -324,7 +324,7 @@ class ItoMConverter {
                   if ('post' === trimValue) {
                     newObj.order = 'AFTER';
                   } else {
-                    newObj.order = 'PRE';
+                    newObj.order = 'BEFORE';
                   }
                   break;
                 default:
@@ -396,7 +396,7 @@ class ItoMConverter {
               if (!childKey) { continue; }
               const child = children[childKey];
               if (child._) {
-                const groups = /#([a-zA-Z0-90]+)\[\]/.exec(child._)
+                const groups = /#([a-zA-Z0-90]+)\[\]/.exec(child._);
                 if (groups) {
                   newAttr.collection = groups[1];
                   break;
@@ -585,14 +585,17 @@ class ItoMConverter {
         const name = result['#name'];
         return 'result' === name || 'id' === name;
       }).map((result: any) => {
+        // Convert <result />
         const a = result.$;
-        delete a.nullValue;
-        return createXmlElement(
-          result['#name'],
-          a,
-          [],
-          result[TEXT_NODE_NAME]
-        );
+        if (a.jdbcType) {
+          a.jdbcType = a.jdbcType.toUpperCase();
+        }
+        if (a.select && a.column) {
+          return createXmlElement('association', a, [], result[TEXT_NODE_NAME]);
+        } else {
+          delete a.nullValue;
+          return createXmlElement(result['#name'], a, [], result[TEXT_NODE_NAME]);
+        }
       })
     );
 
