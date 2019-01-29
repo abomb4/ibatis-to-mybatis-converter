@@ -307,9 +307,11 @@ class ItoMConverter {
         const name = result['#name'];
         return 'result' === name || 'id' === name;
       }).map((result: any) => {
+        const a = result.$;
+        delete a.nullValue;
         return createXmlElement(
           result['#name'],
-          result.$,
+          a,
           [],
           result[TEXT_NODE_NAME]
         );
@@ -408,7 +410,7 @@ class ItoMConverter {
       }
     }
     resp.text = this.filterElementText(procedureJoin);
-    resp.text = LINE_SEPARATOR + resp.text + LINE_SEPARATOR;
+    resp.text = resp.text;
 
     return resp;
   }
@@ -502,9 +504,9 @@ class ItoMConverter {
                   break;
                 case 'type':
                   if ('post' === trimValue) {
-                    newObj.order = 'after';
+                    newObj.order = 'AFTER';
                   } else {
-                    newObj.order = 'pre';
+                    newObj.order = 'PRE';
                   }
                   break;
                 default:
