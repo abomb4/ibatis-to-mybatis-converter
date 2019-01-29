@@ -723,6 +723,9 @@ class ItoMConverter {
         }
       }
     });
+    if (prependText) {
+      prependText = prependText.trim();
+    }
 
     // Someone don't write 'property' attr to <isNotEmpty /> etc tag
     if (!newAttr.test) {
@@ -744,7 +747,13 @@ class ItoMConverter {
       }
       const mayText = resp.children[0];
       if (prependText && mayText && mayText.text) {
-        mayText.text = ` ${prependText} ${mayText.text} `;
+        if (parent.name === 'set') {
+          // Ibatis <dynamic prepend="set" /> supports prefix ',' in child,
+          // but MyBatis only supports suffix.
+          mayText.text = `${mayText.text} ${prependText}`;
+        } else {
+          mayText.text = `${prependText} ${mayText.text} `;
+        }
       }
     }
   }
