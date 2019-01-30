@@ -20,9 +20,10 @@ Someday I should refactor this project, make it prettier and stronger, if I reme
 
 ## USAGE
 To use this tool, you should manually install it first:
-0. Ensure you have `Node JS` and `npm` installed
-1. Clone this repository to a 'stable' path
-2. `cd` to cloned directory, run `npm install && npm install -g`
+
+1. Ensure you have `Node JS` and `npm` installed
+2. Clone this repository to a 'stable' path
+3. `cd` to cloned directory, run `npm install && npm install -g`
 
 'stable' path means you should not move or rename it.
 
